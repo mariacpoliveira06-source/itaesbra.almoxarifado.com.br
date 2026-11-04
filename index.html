@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-black">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Integrado - Login & Gestão</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- FIREBASE SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              red: '#dc2626',
+              darkRed: '#880000',
+              deepBg: '#120002',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #180003 0%, #4a0008 50%, #000000 100%);
+      background-attachment: fixed;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    .glass-card {
+      background: rgba(20, 2, 5, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 50, 50, 0.18);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+
+    .glass-card-sm {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .custom-input {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      transition: all 0.2s ease;
+    }
+
+    .custom-input:focus {
+      outline: none;
+      border-color: #ef4444;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .btn-gradient {
+      background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-gradient:hover {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-gradient:active {
+      transform: translateY(1px);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(220, 38, 38, 0.4);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(220, 38, 38, 0.7);
+    }
+  </style>
+</head>
+<body class="text-slate-100 antialiased min-h-screen flex flex-col justify-between">
+
+  <!-- NOTIFICAÇÕES (TOAST) -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- CONTAINER PRINCIPAL -->
+  <div class="flex-1 flex items-center justify-center p-4 md:p-6 min-h-screen">
+    
+    <!-- 1. TELA DE LOGIN -->
+    <div id="screen-login" class="w-full max-w-md">
+      <div class="glass-card rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+        
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-950/60 border border-red-500/30 text-red-500 mb-3 shadow-lg shadow-red-950/50">
+            <i data-lucide="shield-check" class="w-7 h-7"></i>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight text-white">Portal de Acesso</h1>
+          <p class="text-xs text-zinc-400 mt-1">Selecione o seu perfil de acesso e identifique-se</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-1 bg-black/50 p-1 rounded-xl border border-white/5 mb-6">
+          <button type="button" id="tab-employee" onclick="switchTab('employee')" 
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 bg-red-600 text-white shadow-md">
+            <i data-lucide="user" class="w-4 h-4"></i>
+            Funcionário
+          </button>
+          <button type="button" id="tab-admin" onclick="switchTab('admin')" 
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white transition-all duration-200">
+            <i data-lucide="shield-alert" class="w-4 h-4"></i>
+            Administrativo
+          </button>
+        </div>
+
+        <!-- FORMULÁRIO DE LOGIN -->
+        <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label id="label-user" for="input-username" class="block text-xs font-medium text-zinc-300 mb-1.5">
+              Nome ou Registro / Matrícula
+            </label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
+                <i data-lucide="user-check" class="w-4 h-4"></i>
+              </span>
+              <input type="text" id="input-username" required placeholder="Digite seu nome ou matrícula"
+                class="custom-input w-full pl-10 pr-4 py-3 rounded-xl text-sm placeholder:text-zinc-600">
+            </div>
+          </div>
+
+          <div>
+            <label for="input-password" class="block text-xs font-medium text-zinc-300 mb-1.5">Senha</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+              </span>
+              <input type="password" id="input-password" required placeholder="Digite sua senha"
+                class="custom-input w-full pl-10 pr-10 py-3 rounded-xl text-sm placeholder:text-zinc-600">
+              <button type="button" onclick="togglePasswordVisibility('input-password', 'icon-eye')" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-zinc-500 hover:text-zinc-300">
+                <i id="icon-eye" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="login-error" class="hidden p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-red-400"></i>
+            <span id="login-error-text">Credenciais incorretas!</span>
+          </div>
+
+          <button type="submit" id="btn-submit-login" class="btn-gradient w-full py-3.5 rounded-xl text-sm font-semibold text-white shadow-lg flex items-center justify-center gap-2 mt-2">
+            <span>Acessar o Sistema</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+
+          <!-- OPÇÃO PRIMEIRO ACESSO -->
+          <div id="box-primeiro-acesso" class="text-center pt-2">
+            <button type="button" onclick="toggleAuthMode('register')" class="text-xs text-red-400 hover:text-red-300 font-medium underline transition">
+              Primeiro acesso? Criar conta de Funcionário
+            </button>
+          </div>
+        </form>
+
+        <!-- FORMULÁRIO DE PRIMEIRO ACESSO (CADASTRO) -->
+        <form id="register-form" onsubmit="handleRegister(event)" class="hidden space-y-3.5">
+          <div class="p-2.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-center gap-2 mb-2">
+            <i data-lucide="user-plus" class="w-4 h-4 text-red-400 shrink-0"></i>
+            <span>Preencha os dados abaixo para cadastrar seu primeiro acesso.</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Nome Completo</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-500 pointer-events-none">
+                <i data-lucide="user" class="w-4 h-4"></i>
+              </span>
+              <input type="text" id="reg-nome" required placeholder="Digite seu nome completo" class="custom-input w-full pl-10 pr-4 py-2.5 rounded-xl text-xs">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Registro / Matrícula</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-500 pointer-events-none">
+                <i data-lucide="badge-check" class="w-4 h-4"></i>
+              </span>
+              <input type="text" id="reg-registro" required placeholder="Ex: REG-1020" class="custom-input w-full pl-10 pr-4 py-2.5 rounded-xl text-xs">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Criar Senha</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-500 pointer-events-none">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+              </span>
+              <input type="password" id="reg-senha" required placeholder="Crie uma senha segura" class="custom-input w-full pl-10 pr-10 py-2.5 rounded-xl text-xs">
+              <button type="button" onclick="togglePasswordVisibility('reg-senha', 'icon-eye-reg1')" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-zinc-500 hover:text-zinc-300">
+                <i id="icon-eye-reg1" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Confirmar Senha</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-500 pointer-events-none">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+              </span>
+              <input type="password" id="reg-senha-confirm" required placeholder="Repita a senha para validação" class="custom-input w-full pl-10 pr-10 py-2.5 rounded-xl text-xs">
+              <button type="button" onclick="togglePasswordVisibility('reg-senha-confirm', 'icon-eye-reg2')" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-zinc-500 hover:text-zinc-300">
+                <i id="icon-eye-reg2" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="reg-error" class="hidden p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-red-400"></i>
+            <span id="reg-error-text">As senhas não coincidem!</span>
+          </div>
+
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-xs font-semibold text-white shadow-lg flex items-center justify-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            Criar Conta e Ir para Login
+          </button>
+
+          <div class="text-center pt-2">
+            <button type="button" onclick="toggleAuthMode('login')" class="text-xs text-zinc-400 hover:text-white transition">
+              Já possui conta? Voltar ao Login
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- 2. TELA MENU DO FUNCIONÁRIO -->
+    <div id="screen-employee-menu" class="hidden w-full max-w-2xl">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 mb-6 border-b border-white/10 gap-4">
+          <div class="flex items-center gap-3">
+            <div id="emp-avatar" class="w-12 h-12 rounded-full bg-red-900/80 border border-red-500/30 flex items-center justify-center text-white font-bold text-lg shadow-md">
+              US
+            </div>
+            <div>
+              <p class="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Painel do Colaborador</p>
+              <h2 id="emp-welcome-name" class="text-xl font-bold text-white">Bem-vindo(a)</h2>
+            </div>
+          </div>
+          <button onclick="logout()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-red-950/50 border border-white/10 hover:border-red-500/30 text-xs text-zinc-300 hover:text-red-400 transition flex items-center gap-2">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            Sair
+          </button>
+        </div>
+
+        <p class="text-sm text-zinc-300 mb-6">Selecione uma das categorias abaixo para gerenciar solicitações e materiais:</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button onclick="showScreen('screen-epis-menu')" class="glass-card-sm p-6 rounded-2xl border border-red-500/20 hover:border-red-500/60 hover:bg-red-950/20 transition-all text-left group flex flex-col justify-between h-40">
+            <div class="flex items-center justify-between">
+              <div class="p-3 rounded-xl bg-red-900/40 text-red-400 border border-red-500/30 group-hover:scale-110 transition-transform">
+                <i data-lucide="hard-hat" class="w-7 h-7"></i>
+              </div>
+              <i data-lucide="chevron-right" class="w-5 h-5 text-zinc-500 group-hover:text-red-400 group-hover:translate-x-1 transition-all"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white group-hover:text-red-400 transition-colors">EPI's</h3>
+              <p class="text-xs text-zinc-400 mt-1">Equipamentos de Proteção Individual e itens de segurança</p>
+            </div>
+          </button>
+
+          <button onclick="showScreen('screen-tools')" class="glass-card-sm p-6 rounded-2xl border border-white/10 hover:border-red-500/40 hover:bg-red-950/20 transition-all text-left group flex flex-col justify-between h-40">
+            <div class="flex items-center justify-between">
+              <div class="p-3 rounded-xl bg-zinc-800/60 text-zinc-300 border border-white/10 group-hover:scale-110 transition-transform group-hover:text-red-400">
+                <i data-lucide="wrench" class="w-7 h-7"></i>
+              </div>
+              <i data-lucide="chevron-right" class="w-5 h-5 text-zinc-500 group-hover:text-red-400 group-hover:translate-x-1 transition-all"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white group-hover:text-red-400 transition-colors">Ferramentas</h3>
+              <p class="text-xs text-zinc-400 mt-1">Requisição, cautela e devolução de equipamentos</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. TELA MENU DE EPI'S -->
+    <div id="screen-epis-menu" class="hidden w-full max-w-2xl">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
+          <button onclick="showScreen('screen-employee-menu')" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            Voltar ao Menu
+          </button>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-950 text-red-400 border border-red-500/30">
+            Módulo de EPI's
+          </span>
+        </div>
+
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="shield" class="w-5 h-5 text-red-500"></i>
+            Solicitação de EPI's
+          </h2>
+          <p class="text-xs text-zinc-400 mt-1">Selecione o equipamento desejado abaixo para proceder com a requisição:</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          <button onclick="showScreen('screen-creme')" class="glass-card-sm p-3.5 rounded-xl border border-red-500/30 hover:border-red-500 hover:bg-red-950/40 transition flex items-center gap-3 group text-left">
+            <div class="p-2 rounded-lg bg-red-950/80 text-red-400 border border-red-500/30 shrink-0">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold text-zinc-200 group-hover:text-white leading-snug">Creme de proteção</span>
+          </button>
+
+          <button onclick="showScreen('screen-luva')" class="glass-card-sm p-3.5 rounded-xl border border-red-500/30 hover:border-red-500 hover:bg-red-950/40 transition flex items-center gap-3 group text-left">
+            <div class="p-2 rounded-lg bg-red-950/80 text-red-400 border border-red-500/30 shrink-0">
+              <i data-lucide="hand" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold text-zinc-200 group-hover:text-white">Luva</span>
+          </button>
+
+          <button onclick="showScreen('screen-oculos')" class="glass-card-sm p-3.5 rounded-xl border border-red-500/30 hover:border-red-500 hover:bg-red-950/40 transition flex items-center gap-3 group text-left">
+            <div class="p-2 rounded-lg bg-red-950/80 text-red-400 border border-red-500/30 shrink-0">
+              <i data-lucide="glasses" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold text-zinc-200 group-hover:text-white">Óculos</span>
+          </button>
+
+          <button onclick="showScreen('screen-auricular')" class="glass-card-sm p-3.5 rounded-xl border border-red-500/30 hover:border-red-500 hover:bg-red-950/40 transition flex items-center gap-3 group text-left">
+            <div class="p-2 rounded-lg bg-red-950/80 text-red-400 border border-red-500/30 shrink-0">
+              <i data-lucide="headphones" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold text-zinc-200 group-hover:text-white leading-tight">Protetor Auricular</span>
+          </button>
+
+          <button onclick="showScreen('screen-sapato')" class="glass-card-sm p-3.5 rounded-xl border border-red-500/30 hover:border-red-500 hover:bg-red-950/40 transition flex items-center gap-3 group text-left">
+            <div class="p-2 rounded-lg bg-red-950/80 text-red-400 border border-red-500/30 shrink-0">
+              <i data-lucide="footprints" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold text-zinc-200 group-hover:text-white">Sapato</span>
+          </button>
+        </div>
+
+        <div class="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs text-zinc-400">
+          <span>Precisa de outro equipamento não listado?</span>
+          <button onclick="openAlmoxarifadoModal()" class="text-red-400 hover:underline font-medium">Contatar Almoxarifado</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL PARA CONTATAR ALMOXARIFADO -->
+    <div id="modal-almoxarifado" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="glass-card w-full max-w-md rounded-2xl p-6 border border-red-500/30 relative">
+        <button onclick="closeAlmoxarifadoModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+
+        <div class="flex items-center gap-3 mb-4">
+          <div class="p-3 rounded-xl bg-red-950 text-red-400 border border-red-500/30">
+            <i data-lucide="message-square-plus" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Solicitar ao Almoxarifado</h3>
+            <p class="text-xs text-zinc-400">Informe o que você precisa e seus dados de contato</p>
+          </div>
+        </div>
+
+        <form onsubmit="handleSendAlmoxarifado(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Nome Completo</label>
+            <input type="text" id="almox-nome" required placeholder="Digite seu nome" class="custom-input w-full px-3 py-2 rounded-xl text-xs">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Registro / Matrícula</label>
+              <input type="text" id="almox-registro" required placeholder="REG-1020" class="custom-input w-full px-3 py-2 rounded-xl text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1">Telefone / E-mail</label>
+              <input type="text" id="almox-contato" required placeholder="(11) 99999-9999 ou email@empresa.com" class="custom-input w-full px-3 py-2 rounded-xl text-xs">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">O que você precisa?</label>
+            <textarea id="almox-mensagem" required rows="3" placeholder="Descreva detalhadamente o item, tamanho ou equipamento desejado..." class="custom-input w-full p-3 rounded-xl text-xs"></textarea>
+          </div>
+
+          <button type="submit" class="btn-gradient w-full py-2.5 rounded-xl text-xs font-semibold text-white mt-2 flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            Enviar Solicitação Direta
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 4. FORMULÁRIOS ESPECÍFICOS DE EPI'S E FERRAMENTAS -->
+    <div id="screen-creme" class="hidden w-full max-w-lg">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
+          <button onclick="showScreen('screen-epis-menu')" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar para EPI's
+          </button>
+          <span class="text-xs font-medium text-red-400 bg-red-950/60 px-2.5 py-1 rounded-full border border-red-500/30">Formulário Especial</span>
+        </div>
+        <div class="flex items-center gap-3 mb-6">
+          <div class="p-3 rounded-xl bg-red-900/50 text-red-400 border border-red-500/30"><i data-lucide="sparkles" class="w-6 h-6"></i></div>
+          <div><h2 class="text-lg font-bold text-white">Creme de Proteção</h2><p class="text-xs text-zinc-400">Preencha os dados de requisição</p></div>
+        </div>
+        <form onsubmit="handleCremeSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Registro / Matrícula</label>
+            <input type="text" id="creme-registro" required placeholder="Digite seu registro" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Telefone de Contato (WhatsApp)</label>
+            <input type="text" id="creme-telefone" required placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Quantidade</label>
+            <input type="number" id="creme-quantidade" min="1" max="10" value="1" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Código do Sistema</label>
+            <div class="flex gap-2">
+              <input type="text" id="creme-codigo" readonly placeholder="Aguardando carregamento..." class="custom-input flex-1 px-3 py-2.5 rounded-xl text-sm bg-black/60 text-amber-400 font-mono">
+              <button type="button" onclick="carregarCodigoAdmin('creme-codigo')" class="px-4 py-2.5 rounded-xl bg-red-900/60 hover:bg-red-800 border border-red-500/40 text-xs font-semibold text-white flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Carregar</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-sm font-semibold text-white mt-4 flex items-center justify-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4"></i> Finalizar Requisição</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="screen-luva" class="hidden w-full max-w-lg">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
+          <button onclick="showScreen('screen-epis-menu')" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition"><i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar</button>
+          <span class="text-xs font-medium text-red-400 bg-red-950/60 px-2.5 py-1 rounded-full border border-red-500/30">Luva</span>
+        </div>
+        <form onsubmit="handleLuvaSubmit(event)" class="space-y-4">
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Registro</label><input type="text" id="luva-registro" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Telefone (WhatsApp)</label><input type="text" id="luva-telefone" required placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-medium text-zinc-300 mb-1">Tamanho</label><select id="luva-tamanho" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm bg-black/60"><option value="P">P</option><option value="M" selected>M</option><option value="G">G</option></select></div>
+            <div><label class="block text-xs font-medium text-zinc-300 mb-1">Quantidade</label><input type="number" id="luva-quantidade" value="1" min="1" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          </div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Código</label><div class="flex gap-2"><input type="text" id="luva-codigo" readonly class="custom-input flex-1 px-3 py-2.5 rounded-xl text-sm bg-black/60 text-amber-400 font-mono"><button type="button" onclick="carregarCodigoAdmin('luva-codigo')" class="px-4 py-2.5 rounded-xl bg-red-900/60 text-xs text-white">Carregar</button></div></div>
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-sm font-semibold text-white mt-4">Finalizar Requisição</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="screen-oculos" class="hidden w-full max-w-lg">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10"><button onclick="showScreen('screen-epis-menu')" class="text-xs text-zinc-400">Voltar</button></div>
+        <form onsubmit="handleOculosSubmit(event)" class="space-y-4">
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Registro</label><input type="text" id="oculos-registro" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Telefone (WhatsApp)</label><input type="text" id="oculos-telefone" required placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Quantidade</label><input type="number" id="oculos-quantidade" value="1" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Código</label><div class="flex gap-2"><input type="text" id="oculos-codigo" readonly class="custom-input flex-1 px-3 py-2.5 rounded-xl text-sm bg-black/60 text-amber-400 font-mono"><button type="button" onclick="carregarCodigoAdmin('oculos-codigo')" class="px-4 py-2.5 rounded-xl bg-red-900/60 text-xs text-white">Carregar</button></div></div>
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-sm font-semibold text-white mt-4">Finalizar Requisição</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="screen-auricular" class="hidden w-full max-w-lg">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10"><button onclick="showScreen('screen-epis-menu')" class="text-xs text-zinc-400">Voltar</button></div>
+        <form onsubmit="handleAuricularSubmit(event)" class="space-y-4">
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Registro</label><input type="text" id="auricular-registro" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Telefone (WhatsApp)</label><input type="text" id="auricular-telefone" required placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Quantidade</label><input type="number" id="auricular-quantidade" value="1" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Código</label><div class="flex gap-2"><input type="text" id="auricular-codigo" readonly class="custom-input flex-1 px-3 py-2.5 rounded-xl text-sm bg-black/60 text-amber-400 font-mono"><button type="button" onclick="carregarCodigoAdmin('auricular-codigo')" class="px-4 py-2.5 rounded-xl bg-red-900/60 text-xs text-white">Carregar</button></div></div>
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-sm font-semibold text-white mt-4">Finalizar Requisição</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="screen-sapato" class="hidden w-full max-w-lg">
+      <div class="glass-card rounded-2xl p-6 sm:p-8">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-white/10"><button onclick="showScreen('screen-epis-menu')" class="text-xs text-zinc-400">Voltar</button></div>
+        <form onsubmit="handleSapatoSubmit(event)" class="space-y-4">
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Registro</label><input type="text" id="sapato-registro" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Telefone (WhatsApp)</label><input type="text" id="sapato-telefone" required placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-medium text-zinc-300 mb-1">Tamanho</label><input type="text" id="sapato-tamanho" placeholder="Ex: 40" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+            <div><label class="block text-xs font-medium text-zinc-300 mb-1">Quantidade</label><input type="number" id="sapato-quantidade" value="1" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          </div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Código</label><div class="flex gap-2"><input type="text" id="sapato-codigo" readonly class="custom-input flex-1 px-3 py-2.5 rounded-xl text-sm bg-black/60 text-amber-400 font-mono"><button type="button" onclick="carregarCodigoAdmin('sapato-codigo')" class="px-4 py-2.5 rounded-xl bg-red-900/60 text-xs text-white">Carregar</button></div></div>
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-sm font-semibold text-white mt-4">Finalizar Requisição</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TELA DE FERRAMENTAS -->
+    <div id="screen-tools" class="hidden w-full max-w-xl">
+      <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <button onclick="showScreen('screen-employee-menu')" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar
+          </button>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-950 text-red-400 border border-red-500/30">
+            Módulo Ferramentas
+          </span>
+        </div>
+
+        <form onsubmit="handleFerramentasSubmit(event)" class="space-y-4">
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Registro</label><input type="text" id="tool-registro" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Telefone (WhatsApp)</label><input type="text" id="tool-telefone" required placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Ferramenta</label><input type="text" id="tool-nome" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-medium text-zinc-300 mb-1">Material</label><input type="text" id="tool-material" required class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+            <div><label class="block text-xs font-medium text-zinc-300 mb-1">Quantidade</label><input type="number" id="tool-quantidade" value="1" class="custom-input w-full px-3 py-2.5 rounded-xl text-sm"></div>
+          </div>
+          <div><label class="block text-xs font-medium text-zinc-300 mb-1">Código</label><div class="flex gap-2"><input type="text" id="tool-codigo" readonly class="custom-input flex-1 px-3 py-2.5 rounded-xl text-sm bg-black/60 text-amber-400 font-mono"><button type="button" onclick="carregarCodigoAdmin('tool-codigo')" class="px-4 py-2.5 rounded-xl bg-red-900/60 text-xs text-white">Carregar</button></div></div>
+          <button type="submit" class="btn-gradient w-full py-3 rounded-xl text-sm font-semibold text-white mt-4">Finalizar Cautela</button>
+        </form>
+
+        <div class="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs text-zinc-400 pt-4">
+          <span>Precisa de outra ferramenta não listada?</span>
+          <button onclick="openAlmoxarifadoModal()" class="text-red-400 hover:underline font-medium">Contatar Almoxarifado</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. PAINEL ADMINISTRATIVO -->
+    <div id="screen-admin-dashboard" class="hidden w-full max-w-5xl">
+      <div class="glass-card rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-[550px]">
+        
+        <!-- SIDEBAR ESQUERDA -->
+        <div class="w-full md:w-64 bg-black/60 border-b md:border-b-0 md:border-r border-white/10 p-4 flex flex-col justify-between shrink-0">
+          <div>
+            <div class="flex items-center gap-3 pb-4 mb-4 border-b border-white/10">
+              <div class="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">AD</div>
+              <div>
+                <h3 id="admin-welcome-name" class="text-sm font-bold text-white leading-tight">Administrador</h3>
+                <span class="text-[10px] text-red-400 font-semibold uppercase tracking-wider">Painel de Gestão</span>
+              </div>
+            </div>
+
+            <nav class="space-y-1.5">
+              <button onclick="switchAdminSection('requisicao')" id="admin-nav-requisicao"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all bg-red-950/80 border border-red-500/40 text-white shadow-md">
+                <i data-lucide="clipboard-list" class="w-4 h-4 text-red-400"></i>
+                Controle de Requisição
+              </button>
+
+              <button onclick="switchAdminSection('pedidos')" id="admin-nav-pedidos"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent">
+                <div class="flex items-center gap-3">
+                  <i data-lucide="package-check" class="w-4 h-4 text-zinc-400"></i>
+                  <span>PEDIDOS</span>
+                </div>
+                <span id="badge-pedidos-count" class="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold">0</span>
+              </button>
+
+              <button onclick="switchAdminSection('solicitacoes')" id="admin-nav-solicitacoes"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent">
+                <div class="flex items-center gap-3">
+                  <i data-lucide="message-square" class="w-4 h-4 text-zinc-400"></i>
+                  <span>Solicitações</span>
+                </div>
+                <span id="badge-solicitacoes" class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold">0</span>
+              </button>
+
+              <button onclick="switchAdminSection('inclusao')" id="admin-nav-inclusao"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent">
+                <i data-lucide="plus-circle" class="w-4 h-4 text-zinc-400"></i>
+                Inclusão
+              </button>
+
+              <button onclick="switchAdminSection('estoque')" id="admin-nav-estoque"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent">
+                <i data-lucide="boxes" class="w-4 h-4 text-zinc-400"></i>
+                Controle de Estoque
+              </button>
+
+              <button onclick="switchAdminSection('registros')" id="admin-nav-registros"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent">
+                <div class="flex items-center gap-3">
+                  <i data-lucide="users" class="w-4 h-4 text-zinc-400"></i>
+                  <span>Registros</span>
+                </div>
+                <span id="badge-registros-count" class="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] font-bold border border-white/10">0</span>
+              </button>
+            </nav>
+          </div>
+
+          <div class="pt-4 mt-4 border-t border-white/10">
+            <button onclick="logout()" class="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-red-950/50 border border-white/10 hover:border-red-500/30 text-xs text-zinc-400 hover:text-red-400 transition flex items-center justify-center gap-2">
+              <i data-lucide="log-out" class="w-4 h-4"></i> Encerrar Sessão
+            </button>
+          </div>
+        </div>
+
+        <!-- ÁREA DIREITA DE CONTEÚDO -->
+        <div class="flex-1 p-6 md:p-8 bg-black/20 overflow-y-auto max-h-[600px]">
+          
+          <!-- SEÇÃO 1: CONTROLE DE REQUISIÇÕES -->
+          <div id="admin-sec-requisicao" class="space-y-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+              <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                  <i data-lucide="clipboard-list" class="w-5 h-5 text-red-500"></i>
+                  Controle de Requisições
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">Aprove requisições para transferi-las automaticamente para a aba PEDIDOS</p>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-xl border border-white/10 bg-black/40">
+              <table class="w-full text-left text-xs text-zinc-300">
+                <thead class="bg-white/5 text-zinc-400 border-b border-white/10 uppercase font-semibold">
+                  <tr>
+                    <th class="p-3">Usuário</th>
+                    <th class="p-3">Item / Ação</th>
+                    <th class="p-3">Registro</th>
+                    <th class="p-3">Telefone</th>
+                    <th class="p-3">Código</th>
+                    <th class="p-3">Status</th>
+                    <th class="p-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-requests-table" class="divide-y divide-white/5"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SEÇÃO PEDIDOS -->
+          <div id="admin-sec-pedidos" class="hidden space-y-6">
+            <div class="pb-3 border-b border-white/10">
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="package-check" class="w-5 h-5 text-emerald-500"></i>
+                Pedidos Aprovados & Liberação de Reservas
+              </h2>
+              <p class="text-xs text-zinc-400 mt-0.5">Gerencie os números de reservas gerados e envie para o WhatsApp do funcionário</p>
+            </div>
+
+            <div id="admin-pedidos-list" class="space-y-4"></div>
+          </div>
+
+          <!-- SEÇÃO 2: SOLICITAÇÕES DIRETAS -->
+          <div id="admin-sec-solicitacoes" class="hidden space-y-6">
+            <div class="pb-3 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                  <i data-lucide="message-square" class="w-5 h-5 text-red-500"></i>
+                  Solicitações para Almoxarifado
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">Responda aos colaboradores via Telefone/WhatsApp ou E-mail e encerre o atendimento.</p>
+              </div>
+            </div>
+            <div id="admin-solicitacoes-cards" class="space-y-4"></div>
+          </div>
+
+          <!-- SEÇÃO 3: INCLUSÃO DE CÓDIGOS -->
+          <div id="admin-sec-inclusao" class="hidden space-y-6">
+            <div class="pb-3 border-b border-white/10">
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="plus-circle" class="w-5 h-5 text-red-500"></i>
+                Inclusão de Itens & Criação de Códigos
+              </h2>
+            </div>
+
+            <div class="glass-card-sm p-5 rounded-xl border border-red-500/30 bg-red-950/10 space-y-4">
+              <form id="form-inc-ferramenta" onsubmit="handleInclusaoSubmit(event)" class="space-y-3">
+                <div><label class="block text-xs font-medium text-zinc-300 mb-1">Nome do Item</label><input type="text" id="inc-tool-nome" required placeholder="Ex: Chave Combinada" class="custom-input w-full px-3 py-2 rounded-xl text-xs"></div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div><label class="block text-xs font-medium text-zinc-300 mb-1">Material / Modelo</label><input type="text" id="inc-tool-material" required placeholder="Ex: Aço Cr-V" class="custom-input w-full px-3 py-2 rounded-xl text-xs"></div>
+                  <div><label class="block text-xs font-medium text-zinc-300 mb-1">Especificação</label><input type="text" id="inc-tool-comprimento" placeholder="Ex: 200mm" class="custom-input w-full px-3 py-2 rounded-xl text-xs"></div>
+                </div>
+                <div class="pt-2 border-t border-white/10">
+                  <label class="block text-xs font-medium text-amber-400 mb-1">Criar Código Único de Liberação</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="inc-tool-codigo" required placeholder="Ex: ITEM-2026-X1" class="custom-input flex-1 px-3 py-2 rounded-xl text-xs uppercase font-mono">
+                    <button type="button" onclick="gerarCodigoAleatorio('inc-tool-codigo', 'COD')" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-300 text-xs">Gerar</button>
+                    <button type="submit" class="btn-gradient px-4 py-2 rounded-xl text-xs font-semibold text-white">Salvar</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div>
+              <p class="text-xs font-bold text-white uppercase mb-2">Códigos Salvos:</p>
+              <div id="admin-code-details-list" class="space-y-2"></div>
+            </div>
+          </div>
+
+          <!-- SEÇÃO 4: ESTOQUE -->
+          <div id="admin-sec-estoque" class="hidden space-y-6">
+            <div class="pb-3 border-b border-white/10">
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="boxes" class="w-5 h-5 text-red-500"></i> Controle de Estoque
+              </h2>
+            </div>
+            <div id="estoque-grid-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <!-- SEÇÃO 5: REGISTROS DE CONTAS DE FUNCIONÁRIOS -->
+          <div id="admin-sec-registros" class="hidden space-y-6">
+            <div class="pb-3 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                  <i data-lucide="users" class="w-5 h-5 text-red-500"></i>
+                  Registros de Funcionários Cadastrados
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">Lista de contas criadas no Primeiro Acesso (Senhas totalmente protegidas)</p>
+              </div>
+
+              <div class="relative w-full sm:w-64">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500 pointer-events-none">
+                  <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                </span>
+                <input type="text" id="input-search-registros" oninput="renderEmployeeRegistrosTable()" placeholder="Buscar nome ou registro..." class="custom-input w-full pl-9 pr-3 py-1.5 rounded-xl text-xs">
+              </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-xl border border-white/10 bg-black/40">
+              <table class="w-full text-left text-xs text-zinc-300">
+                <thead class="bg-white/5 text-zinc-400 border-b border-white/10 uppercase font-semibold">
+                  <tr>
+                    <th class="p-3">Nome Completo</th>
+                    <th class="p-3">Registro / Matrícula</th>
+                    <th class="p-3">Data de Cadastro</th>
+                    <th class="p-3">Senha de Acesso</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-registros-table" class="divide-y divide-white/5"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SCRIPTS JS -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "COLE_SUA_API_KEY_AQUI",
+      authDomain: "SEU_PROJETO.firebaseapp.com",
+      databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+      projectId: "SEU_PROJETO",
+      storageBucket: "SEU_PROJETO.appspot.com",
+      messagingSenderId: "000000000000",
+      appId: "1:000000000000:web:0000000000000000000000"
+    };
+
+    let db = null;
+    try {
+      if (firebase && firebase.initializeApp) {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+      }
+    } catch (e) {
+      console.log('Modo LocalStorage Ativo');
+    }
+
+    let currentRole = 'employee';
+    let currentUser = '';
+
+    // CONTADOR SEQUENCIAL DE RESERVAS (INICIA EM 1)
+    let nextReservaNumber = parseInt(localStorage.getItem('nextReservaNumber') || '1');
+
+    // CARREGA DADOS DO LOCALSTORAGE IMEDIATAMENTE
+    let createdItems = JSON.parse(localStorage.getItem('createdItems') || '[]');
+    let requestsData = JSON.parse(localStorage.getItem('requestsData') || '[]');
+    let almoxarifadoSolicitacoes = JSON.parse(localStorage.getItem('almoxarifadoSolicitacoes') || '[]');
+    let funcionariosList = JSON.parse(localStorage.getItem('funcionariosList') || '[]');
+    let activeCodes = createdItems.map(i => i.codigo);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      iniciarSincronizacao();
+      renderEmployeeRegistrosTable();
+      renderAlmoxarifadoRequests();
+      renderRequestsTable();
+      renderPedidosTable();
+      carregarUltimoUsuarioSalvo();
+    });
+
+    function carregarUltimoUsuarioSalvo() {
+      const lastUser = localStorage.getItem('lastEmployeeUser');
+      if (lastUser && currentRole === 'employee') {
+        const usernameInput = document.getElementById('input-username');
+        if (usernameInput) usernameInput.value = lastUser;
+      }
+    }
+
+    function iniciarSincronizacao() {
+      if (!db) return;
+
+      db.ref('funcionarios').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          funcionariosList = Object.values(data);
+          localStorage.setItem('funcionariosList', JSON.stringify(funcionariosList));
+          renderEmployeeRegistrosTable();
+        }
+      });
+
+      db.ref('createdItems').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          createdItems = Object.values(data);
+          localStorage.setItem('createdItems', JSON.stringify(createdItems));
+          activeCodes = createdItems.map(i => i.codigo);
+          renderCodeDetailsList();
+          renderEstoqueCards();
+        }
+      });
+
+      db.ref('requestsData').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          requestsData = Object.values(data);
+          localStorage.setItem('requestsData', JSON.stringify(requestsData));
+          renderRequestsTable();
+          renderPedidosTable();
+        }
+      });
+
+      db.ref('almoxarifadoSolicitacoes').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          almoxarifadoSolicitacoes = Object.values(data);
+          localStorage.setItem('almoxarifadoSolicitacoes', JSON.stringify(almoxarifadoSolicitacoes));
+          renderAlmoxarifadoRequests();
+        }
+      });
+    }
+
+    function switchTab(role) {
+      currentRole = role;
+      const tabEmp = document.getElementById('tab-employee');
+      const tabAdm = document.getElementById('tab-admin');
+      const boxAcesso = document.getElementById('box-primeiro-acesso');
+
+      toggleAuthMode('login');
+
+      if (role === 'employee') {
+        tabEmp.className = 'flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold bg-red-600 text-white shadow-md';
+        tabAdm.className = 'flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white';
+        boxAcesso.classList.remove('hidden');
+        carregarUltimoUsuarioSalvo();
+      } else {
+        tabAdm.className = 'flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold bg-red-600 text-white shadow-md';
+        tabEmp.className = 'flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white';
+        boxAcesso.classList.add('hidden');
+        document.getElementById('input-username').value = '';
+      }
+    }
+
+    function toggleAuthMode(mode) {
+      const loginForm = document.getElementById('login-form');
+      const regForm = document.getElementById('register-form');
+      document.getElementById('login-error').classList.add('hidden');
+      document.getElementById('reg-error').classList.add('hidden');
+
+      if (mode === 'register') {
+        loginForm.classList.add('hidden');
+        regForm.classList.remove('hidden');
+      } else {
+        regForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+      }
+    }
+
+    function togglePasswordVisibility(inputId, iconId) {
+      const pwd = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.setAttribute('data-lucide', 'eye-off');
+      } else {
+        pwd.type = 'password';
+        icon.setAttribute('data-lucide', 'eye');
+      }
+      lucide.createIcons();
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const nome = document.getElementById('reg-nome').value.trim();
+      const registro = document.getElementById('reg-registro').value.trim();
+      const senha = document.getElementById('reg-senha').value;
+      const senhaConfirm = document.getElementById('reg-senha-confirm').value;
+      const errBox = document.getElementById('reg-error');
+
+      if (senha !== senhaConfirm) {
+        errBox.classList.remove('hidden');
+        document.getElementById('reg-error-text').textContent = 'As senhas não coincidem!';
+        return;
+      }
+
+      const id = Date.now();
+      const newFunc = { id, nome, registro, senha, dataCadastro: new Date().toLocaleDateString('pt-BR') };
+
+      funcionariosList.push(newFunc);
+      localStorage.setItem('funcionariosList', JSON.stringify(funcionariosList));
+
+      if (db) {
+        try { db.ref('funcionarios/' + id).set(newFunc); } catch(err){}
+      }
+
+      renderEmployeeRegistrosTable();
+
+      document.getElementById('reg-nome').value = '';
+      document.getElementById('reg-registro').value = '';
+      document.getElementById('reg-senha').value = '';
+      document.getElementById('reg-senha-confirm').value = '';
+
+      localStorage.setItem('lastEmployeeUser', registro);
+      toggleAuthMode('login');
+
+      document.getElementById('input-username').value = registro;
+      document.getElementById('input-password').value = '';
+      document.getElementById('input-password').focus();
+
+      showToast('Conta criada com sucesso!', 'success');
+    }
+
+    // LOGIN TOTALMENTE DESBLOQUEADO (ACESSO LIVRE)
+    function handleLogin(e) {
+      e.preventDefault();
+      const userVal = document.getElementById('input-username').value.trim();
+      const errBox = document.getElementById('login-error');
+
+      errBox.classList.add('hidden');
+
+      if (currentRole === 'admin') {
+        currentUser = userVal || 'Administrador';
+        document.getElementById('admin-welcome-name').textContent = currentUser;
+        showScreen('screen-admin-dashboard');
+        switchAdminSection('requisicao');
+        renderEmployeeRegistrosTable();
+        showToast(`Acesso Administrativo Liberado!`, 'success');
+      } else {
+        // ENTRADA LIVRE PARA QUALQUER FUNCIONÁRIO
+        currentUser = userVal || 'Colaborador';
+        localStorage.setItem('lastEmployeeUser', userVal);
+
+        document.getElementById('emp-welcome-name').textContent = currentUser;
+        document.getElementById('emp-avatar').textContent = getInitials(currentUser);
+        showScreen('screen-employee-menu');
+        showToast(`Bem-vindo(a), ${currentUser}!`, 'success');
+      }
+    }
+
+    function switchAdminSection(sectionKey) {
+      const sections = ['requisicao', 'pedidos', 'solicitacoes', 'inclusao', 'estoque', 'registros'];
+      sections.forEach(sec => {
+        const el = document.getElementById(`admin-sec-${sec}`);
+        const navBtn = document.getElementById(`admin-nav-${sec}`);
+        if (sec === sectionKey) {
+          el.classList.remove('hidden');
+          navBtn.className = 'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium bg-red-950/80 border border-red-500/40 text-white shadow-md';
+        } else {
+          el.classList.add('hidden');
+          navBtn.className = 'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent';
+        }
+      });
+      if (sectionKey === 'registros') renderEmployeeRegistrosTable();
+      if (sectionKey === 'solicitacoes') renderAlmoxarifadoRequests();
+      if (sectionKey === 'pedidos') renderPedidosTable();
+      if (sectionKey === 'requisicao') renderRequestsTable();
+      if (sectionKey === 'estoque') renderEstoqueCards();
+    }
+
+    function renderRequestsTable() {
+      const tableBody = document.getElementById('admin-requests-table');
+      if (!tableBody) return;
+
+      const pendentes = requestsData.filter(r => r.status === 'Em Andamento');
+
+      if (pendentes.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-zinc-500 italic">Nenhuma requisição pendente no momento. Todas aprovadas estão na aba PEDIDOS.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = pendentes.map(req => `
+        <tr>
+          <td class="p-3 font-medium text-white">${req.user}</td>
+          <td class="p-3">${req.item}</td>
+          <td class="p-3 text-zinc-400 font-mono">${req.registro}</td>
+          <td class="p-3 text-zinc-300 font-mono">${req.telefone || 'Não Informado'}</td>
+          <td class="p-3 font-mono text-amber-400">${req.codigo}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-500/30 text-[10px] font-semibold">${req.status}</span></td>
+          <td class="p-3 text-right">
+            <button onclick="approveAndMoveToPedidos('${req.id}')" title="Aprovar e Enviar para PEDIDOS" class="px-3 py-1.5 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/40 font-semibold text-xs transition flex items-center gap-1 ml-auto">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Aprovar
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    function renderPedidosTable() {
+      const container = document.getElementById('admin-pedidos-list');
+      const badge = document.getElementById('badge-pedidos-count');
+
+      const aprovados = requestsData.filter(r => r.status === 'Aprovado' || r.status === 'Reservado & Enviado');
+      if (badge) badge.textContent = aprovados.length;
+
+      if (!container) return;
+
+      if (aprovados.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-zinc-500 italic border border-white/10 rounded-2xl bg-black/40">Nenhum pedido aprovado ainda. Ao aprovar uma requisição, ela aparecerá aqui.</div>`;
+        return;
+      }
+
+      container.innerHTML = aprovados.map(ped => {
+        const isEnviado = ped.status === 'Reservado & Enviado';
+        return `
+          <div class="glass-card-sm p-5 rounded-2xl border ${isEnviado ? 'border-zinc-800 bg-zinc-950/60' : 'border-emerald-500/30 bg-emerald-950/10'} space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+              <div>
+                <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Pedido #${ped.numeroReserva || 'Pendente'}</span>
+                <h4 class="text-sm font-bold text-white">${ped.user} <span class="text-xs text-zinc-400 font-mono">(${ped.registro})</span></h4>
+              </div>
+              <div>
+                ${isEnviado ? `
+                  <span class="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1">
+                    <i data-lucide="check-check" class="w-3.5 h-3.5"></i> Reservado & Enviado
+                  </span>
+                ` : `
+                  <span class="px-2.5 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-500/30 text-xs font-semibold flex items-center gap-1">
+                    <i data-lucide="clock" class="w-3.5 h-3.5"></i> Aguardando Envio de Req.
+                  </span>
+                `}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-black/40 p-3 rounded-xl border border-white/5">
+              <div><span class="text-zinc-500 block">Item Requisitado:</span><span class="text-white font-semibold">${ped.item}</span></div>
+              <div><span class="text-zinc-500 block">Código Liberação:</span><span class="text-amber-400 font-mono">${ped.codigo}</span></div>
+              <div><span class="text-zinc-500 block">Número da Reserva:</span><span class="text-emerald-400 font-bold text-sm font-mono">#${ped.numeroReserva || '-'}</span></div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-3 pt-2">
+              <div class="w-full sm:w-auto flex-1 max-w-xs">
+                <label class="block text-[10px] text-zinc-400 font-semibold mb-1">Telefone do Funcionário (WhatsApp)</label>
+                <input type="text" id="tel-ped-${ped.id}" value="${ped.telefone || ''}" placeholder="(11) 99999-9999" class="custom-input w-full px-3 py-1.5 rounded-xl text-xs">
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button onclick="enviarRequisicaoWhatsApp('${ped.id}')" class="btn-gradient px-4 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 shadow-md">
+                  <i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar Req.
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function approveAndMoveToPedidos(id) {
+      const item = requestsData.find(r => r.id == id);
+      if (item) {
+        item.status = 'Aprovado';
+        item.numeroReserva = nextReservaNumber;
+        
+        nextReservaNumber++;
+        localStorage.setItem('nextReservaNumber', nextReservaNumber.toString());
+
+        localStorage.setItem('requestsData', JSON.stringify(requestsData));
+        if (db) db.ref('requestsData/' + id).update({ status: 'Aprovado', numeroReserva: item.numeroReserva });
+
+        renderRequestsTable();
+        renderPedidosTable();
+
+        showToast(`Requisição aprovada! Reserva #${item.numeroReserva} gerada e movida para PEDIDOS.`, 'success');
+        switchAdminSection('pedidos');
+      }
+    }
+
+    function enviarRequisicaoWhatsApp(id) {
+      const ped = requestsData.find(r => r.id == id);
+      if (!ped) return;
+
+      const inputTel = document.getElementById(`tel-ped-${id}`);
+      const telefoneDigitado = inputTel ? inputTel.value.trim() : ped.telefone;
+
+      if (!telefoneDigitado) {
+        showToast('Por favor, informe o telefone do funcionário antes de enviar!', 'error');
+        return;
+      }
+
+      ped.telefone = telefoneDigitado;
+      ped.status = 'Reservado & Enviado';
+
+      localStorage.setItem('requestsData', JSON.stringify(requestsData));
+      if (db) db.ref('requestsData/' + id).update({ telefone: ped.telefone, status: 'Reservado & Enviado' });
+
+      const digitsOnly = telefoneDigitado.replace(/\D/g, '');
+      const phoneWithDdd = digitsOnly.length <= 11 ? '55' + digitsOnly : digitsOnly;
+
+      const mensagemWA = `Olá *${ped.user}*, sua requisição do item *${ped.item}* foi aprovada!\n\n📌 *Número da Reserva:* #${ped.numeroReserva}\n🔑 *Código do Item:* ${ped.codigo}\n\nApresente este número de reserva no almoxarifado para retirar seu equipamento.`;
+
+      const urlWA = `https://wa.me/${phoneWithDdd}?text=${encodeURIComponent(mensagemWA)}`;
+      window.open(urlWA, '_blank');
+
+      renderPedidosTable();
+      showToast(`Reserva #${ped.numeroReserva} enviada para o WhatsApp!`, 'success');
+    }
+
+    function renderEmployeeRegistrosTable() {
+      const tableBody = document.getElementById('admin-registros-table');
+      const badgeCount = document.getElementById('badge-registros-count');
+      const searchVal = (document.getElementById('input-search-registros')?.value || '').toLowerCase();
+
+      if (!funcionariosList || funcionariosList.length === 0) {
+        funcionariosList = JSON.parse(localStorage.getItem('funcionariosList') || '[]');
+      }
+
+      if (badgeCount) badgeCount.textContent = funcionariosList.length;
+      if (!tableBody) return;
+
+      let filtered = funcionariosList.filter(f => 
+        f.nome.toLowerCase().includes(searchVal) || 
+        f.registro.toLowerCase().includes(searchVal)
+      );
+
+      if (filtered.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-zinc-500 italic">Nenhum funcionário cadastrado no momento.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = filtered.map(f => `
+        <tr>
+          <td class="p-3.5 font-semibold text-white">${f.nome}</td>
+          <td class="p-3.5 font-mono text-amber-400">${f.registro}</td>
+          <td class="p-3.5 text-zinc-400">${f.dataCadastro || 'N/A'}</td>
+          <td class="p-3.5">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-black/60 border border-white/10 text-zinc-500 text-[11px] font-mono select-none">
+              <i data-lucide="lock" class="w-3 h-3 text-red-500"></i>
+              ••••••••
+              <span class="text-[9px] text-zinc-600 uppercase font-sans font-bold ml-1">(Protegido)</span>
+            </span>
+          </td>
+        </tr>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    function renderAlmoxarifadoRequests() {
+      const container = document.getElementById('admin-solicitacoes-cards');
+      const badge = document.getElementById('badge-solicitacoes');
+
+      if (!almoxarifadoSolicitacoes || almoxarifadoSolicitacoes.length === 0) {
+        almoxarifadoSolicitacoes = JSON.parse(localStorage.getItem('almoxarifadoSolicitacoes') || '[]');
+      }
+
+      const pendentes = almoxarifadoSolicitacoes.filter(s => s.status !== 'Encerrado').length;
+      if (badge) badge.textContent = pendentes;
+
+      if (!container) return;
+
+      if (almoxarifadoSolicitacoes.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-zinc-500 italic border border-white/10 rounded-2xl bg-black/40">Nenhuma solicitação direta recebida.</div>`;
+        return;
+      }
+
+      container.innerHTML = almoxarifadoSolicitacoes.map(sol => {
+        const isEncerrado = sol.status === 'Encerrado';
+        const digitsOnly = (sol.contato || '').replace(/\D/g, '');
+        const isEmail = (sol.contato || '').includes('@');
+
+        let linkResposta = '#';
+        let targetAttr = '';
+
+        if (isEmail) {
+          linkResposta = `mailto:${sol.contato}?subject=Resposta Solicitacao Almoxarifado&body=Olá ${sol.nome}, referente a sua solicitação: ${sol.mensagem}`;
+        } else if (digitsOnly.length >= 8) {
+          const phoneWithDdd = digitsOnly.length <= 11 ? '55' + digitsOnly : digitsOnly;
+          linkResposta = `https://wa.me/${phoneWithDdd}?text=Olá%20${encodeURIComponent(sol.nome)},%20referente%20à%20sua%20solicitação:%20${encodeURIComponent(sol.mensagem)}`;
+          targetAttr = 'target="_blank"';
+        }
+
+        return `
+          <div class="glass-card-sm p-5 rounded-2xl border ${isEncerrado ? 'border-zinc-800 bg-zinc-950/60 opacity-75' : 'border-red-500/30 bg-red-950/10'} space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl ${isEncerrado ? 'bg-zinc-800 text-zinc-400' : 'bg-red-900/60 text-red-400 border border-red-500/30'} flex items-center justify-center font-bold text-xs">
+                  ${getInitials(sol.nome)}
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white">${sol.nome}</h4>
+                  <p class="text-[11px] text-zinc-400 font-mono">Reg: <span class="text-amber-400">${sol.registro}</span> | Contato: <span class="text-white">${sol.contato}</span></p>
+                </div>
+              </div>
+
+              <div>
+                ${isEncerrado ? `
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-700 text-xs font-semibold">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-zinc-500"></i> Encerrado
+                  </span>
+                ` : `
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 text-amber-400 border border-amber-500/30 text-xs font-semibold">
+                    <i data-lucide="clock" class="w-3.5 h-3.5"></i> Pendente
+                  </span>
+                `}
+              </div>
+            </div>
+
+            <div>
+              <p class="text-xs text-zinc-400 uppercase font-bold tracking-wider mb-1">Mensagem do Colaborador:</p>
+              <div class="p-3 rounded-xl bg-black/50 border border-white/5 text-xs text-zinc-200 leading-relaxed">
+                "${sol.mensagem}"
+              </div>
+            </div>
+
+            ${sol.respostaAdmin ? `
+              <div>
+                <p class="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Resposta do Administrativo:</p>
+                <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-200 leading-relaxed">
+                  ${sol.respostaAdmin}
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-white/5">
+              <div class="flex items-center gap-2">
+                ${!isEncerrado ? `
+                  <a href="${linkResposta}" ${targetAttr} class="px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center gap-1.5 transition">
+                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Responder via Contato
+                  </a>
+                ` : `
+                  <span class="text-[11px] text-zinc-500 italic">Solicitação encerrada e bloqueada para alterações.</span>
+                `}
+              </div>
+
+              <div>
+                ${!isEncerrado ? `
+                  <button onclick="encerrarSolicitacao('${sol.id}')" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-lg">
+                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Encerrar Solicitação
+                  </button>
+                ` : `
+                  <button disabled class="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-600 text-xs font-medium cursor-not-allowed">
+                    Encerrada
+                  </button>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function encerrarSolicitacao(id) {
+      const sol = almoxarifadoSolicitacoes.find(s => s.id == id);
+      if (!sol) return;
+
+      const confirma = confirm(`Deseja confirmar o encerramento da solicitação de "${sol.nome}"?\n\nApós clicar em OK, a solicitação ficará salva porém não será possível modificá-la.`);
+      if (!confirma) return;
+
+      const respostaTexto = prompt("Deseja registrar uma nota final/resposta antes de encerrar? (Opcional)", sol.respostaAdmin || "");
+      if (respostaTexto !== null && respostaTexto.trim() !== "") {
+        sol.respostaAdmin = respostaTexto.trim();
+      }
+
+      sol.status = 'Encerrado';
+      sol.dataEncerramento = new Date().toLocaleDateString('pt-BR');
+
+      localStorage.setItem('almoxarifadoSolicitacoes', JSON.stringify(almoxarifadoSolicitacoes));
+
+      if (db) {
+        db.ref('almoxarifadoSolicitacoes/' + id).update({
+          status: 'Encerrado',
+          respostaAdmin: sol.respostaAdmin || '',
+          dataEncerramento: sol.dataEncerramento
+        });
+      }
+
+      renderAlmoxarifadoRequests();
+      showToast('Solicitação encerrada e travada com sucesso!', 'success');
+    }
+
+    function showScreen(screenId) {
+      const screens = ['screen-login', 'screen-employee-menu', 'screen-epis-menu', 'screen-creme', 'screen-luva', 'screen-oculos', 'screen-auricular', 'screen-sapato', 'screen-tools', 'screen-admin-dashboard'];
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', id !== screenId);
+      });
+    }
+
+    function renderEstoqueCards() {
+      const container = document.getElementById('estoque-grid-cards');
+      if (!container) return;
+      container.innerHTML = createdItems.map(item => `
+        <div class="glass-card-sm p-4 rounded-xl border border-white/10">
+          <h4 class="text-xs font-bold text-white">${item.nome}</h4>
+          <p class="text-[10px] text-zinc-400 font-mono">${item.codigo}</p>
+          <p class="text-xs text-emerald-400 font-bold mt-2">Estoque: ${item.estoque} un</p>
+        </div>
+      `).join('');
+    }
+
+    function renderCodeDetailsList() {
+      const container = document.getElementById('admin-code-details-list');
+      if (!container) return;
+      container.innerHTML = createdItems.map(item => `
+        <div class="glass-card-sm p-2.5 rounded-xl border border-white/10 flex justify-between items-center text-xs">
+          <span class="text-white font-semibold">${item.nome}</span>
+          <span class="text-amber-400 font-mono">${item.codigo}</span>
+        </div>
+      `).join('');
+    }
+
+    function carregarCodigoAdmin(targetInputId) {
+      if (activeCodes.length > 0) {
+        document.getElementById(targetInputId).value = activeCodes[activeCodes.length - 1];
+        showToast('Código carregado com sucesso!', 'success');
+      } else {
+        showToast('Nenhum código cadastrado no Admin ainda!', 'error');
+      }
+    }
+
+    function handleInclusaoSubmit(e) {
+      e.preventDefault();
+      const nome = document.getElementById('inc-tool-nome').value.trim();
+      const codigo = document.getElementById('inc-tool-codigo').value.trim().toUpperCase();
+      const id = Date.now();
+
+      const newItem = { id, nome, codigo, estoque: 20 };
+      createdItems.push(newItem);
+      localStorage.setItem('createdItems', JSON.stringify(createdItems));
+      activeCodes = createdItems.map(i => i.codigo);
+
+      if (db) db.ref('createdItems/' + id).set(newItem);
+
+      renderCodeDetailsList();
+      renderEstoqueCards();
+      showToast('Item cadastrado com sucesso!', 'success');
+    }
+
+    function registrarRequisicaoAdmin(itemText, registro, codigo, telefone) {
+      const id = Date.now();
+      const newReq = {
+        id, user: currentUser, item: itemText, registro, codigo, telefone, status: 'Em Andamento', data: new Date().toLocaleDateString('pt-BR')
+      };
+      requestsData.push(newReq);
+      localStorage.setItem('requestsData', JSON.stringify(requestsData));
+
+      if (db) db.ref('requestsData/' + id).set(newReq);
+      renderRequestsTable();
+    }
+
+    function handleCremeSubmit(e) { e.preventDefault(); registrarRequisicaoAdmin(`Creme (${document.getElementById('creme-quantidade').value}x)`, document.getElementById('creme-registro').value, document.getElementById('creme-codigo').value, document.getElementById('creme-telefone').value); showScreen('screen-epis-menu'); }
+    function handleLuvaSubmit(e) { e.preventDefault(); registrarRequisicaoAdmin(`Luva (${document.getElementById('luva-tamanho').value})`, document.getElementById('luva-registro').value, document.getElementById('luva-codigo').value, document.getElementById('luva-telefone').value); showScreen('screen-epis-menu'); }
+    function handleOculosSubmit(e) { e.preventDefault(); registrarRequisicaoAdmin(`Óculos`, document.getElementById('oculos-registro').value, document.getElementById('oculos-codigo').value, document.getElementById('oculos-telefone').value); showScreen('screen-epis-menu'); }
+    function handleAuricularSubmit(e) { e.preventDefault(); registrarRequisicaoAdmin(`Auricular`, document.getElementById('auricular-registro').value, document.getElementById('auricular-codigo').value, document.getElementById('auricular-telefone').value); showScreen('screen-epis-menu'); }
+    function handleSapatoSubmit(e) { e.preventDefault(); registrarRequisicaoAdmin(`Sapato (Tam: ${document.getElementById('sapato-tamanho').value})`, document.getElementById('sapato-registro').value, document.getElementById('sapato-codigo').value, document.getElementById('sapato-telefone').value); showScreen('screen-epis-menu'); }
+    function handleFerramentasSubmit(e) { e.preventDefault(); registrarRequisicaoAdmin(`Ferramenta: ${document.getElementById('tool-nome').value}`, document.getElementById('tool-registro').value, document.getElementById('tool-codigo').value, document.getElementById('tool-telefone').value); showScreen('screen-employee-menu'); }
+
+    function openAlmoxarifadoModal() { document.getElementById('modal-almoxarifado').classList.remove('hidden'); }
+    function closeAlmoxarifadoModal() { document.getElementById('modal-almoxarifado').classList.add('hidden'); }
+
+    function handleSendAlmoxarifado(e) {
+      e.preventDefault();
+      const id = Date.now();
+      const newSol = {
+        id,
+        nome: document.getElementById('almox-nome').value,
+        registro: document.getElementById('almox-registro').value,
+        contato: document.getElementById('almox-contato').value,
+        mensagem: document.getElementById('almox-mensagem').value,
+        status: 'Pendente',
+        dataCriacao: new Date().toLocaleDateString('pt-BR')
+      };
+
+      almoxarifadoSolicitacoes.push(newSol);
+      localStorage.setItem('almoxarifadoSolicitacoes', JSON.stringify(almoxarifadoSolicitacoes));
+
+      if (db) db.ref('almoxarifadoSolicitacoes/' + id).set(newSol);
+
+      renderAlmoxarifadoRequests();
+      closeAlmoxarifadoModal();
+      showToast('Solicitação enviada!', 'success');
+    }
+
+    function gerarCodigoAleatorio(targetId, prefix) {
+      document.getElementById(targetId).value = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    function logout() { 
+      showScreen('screen-login'); 
+      carregarUltimoUsuarioSalvo();
+      document.getElementById('input-password').value = '';
+      showToast('Sessão encerrada.', 'info'); 
+    }
+    
+    function getInitials(name) { return name ? name.substring(0, 2).toUpperCase() : 'US'; }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl border text-xs shadow-xl transition-all duration-300 ${type === 'success' ? 'bg-red-950 border-red-500/50 text-white' : 'bg-zinc-900 border-zinc-700 text-white'}`;
+      toast.innerHTML = `<i data-lucide="info" class="w-4 h-4 text-red-400"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => toast.remove(), 3000);
+    }
+  </script>
+</body>
+</html>
